@@ -1,0 +1,212 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #e6edf3;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #f97316;
+      margin-bottom: 10px;
+    }
+    select, button {
+      background-color: #1e293b;
+      color: #e6edf3;
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    select:focus, button:focus {
+      outline: none;
+      border-color: #f97316;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+      margin-top: 20px;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      border: 1px solid #334155;
+      background-color: #1e293b;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cell.bold {
+      font-weight: bold;
+    }
+    .cell.conflict {
+      background-color: #dc2626;
+    }
+    .cell:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #f97316;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sudoku</h1>
+  <select id="difficulty">
+    <option value="easy">Easy</option>
+    <option value="medium">Medium</option>
+    <option value="hard">Hard</option>
+  </select>
+  <button onclick="newGame()">New Game</button>
+  <div id="board"></div>
+
+  <script>
+    const board = document.getElementById('board');
+    const difficultySelect = document.getElementById('difficulty');
+    let grid = [];
+
+    function createBoard() {
+      board.innerHTML = '';
+      grid = Array(9).fill().map(() => Array(9).fill(0));
+      renderBoard();
+    }
+
+    function renderBoard() {
+      board.innerHTML = '';
+      for (let i = 0; i < 81; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', () => selectCell(cell));
+        cell.addEventListener('input', (e) => {
+          const val = parseInt(e.target.value);
+          if (!isNaN(val) && val >= 1 && val <= 9) {
+            grid[Math.floor(i / 9)][i % 9] = val;
+            validateBoard();
+          }
+        });
+        cell.addEventListener('keydown', (e) => {
+          if (e.key >= '1' && e.key <= '9') {
+            cell.textContent = e.key;
+            const val = parseInt(e.key);
+            grid[Math.floor(i / 9)][i % 9] = val;
+            validateBoard();
+          }
+        });
+        if (grid[Math.floor(i / 9)][i % 9] !== 0) {
+          cell.textContent = grid[Math.floor(i / 9)][i % 9];
+          cell.classList.add('bold');
+        }
+        board.appendChild(cell);
+      }
+    }
+
+    function selectCell(cell) {
+      document.querySelectorAll('.cell').forEach(c => c.classList.remove('focus'));
+      cell.classList.add('focus');
+    }
+
+    function validateBoard() {
+      document.querySelectorAll('.cell').forEach(c => {
+        c.classList.remove('conflict');
+      });
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          const val = grid[row][col];
+          if (val === 0) continue;
+          for (let i = 0; i < 9; i++) {
+            if (i !== col && grid[row][i] === val) {
+              document.querySelector(`[data-index='${row * 9 + i}']`).classList.add('conflict');
+            }
+            if (i !== row && grid[i][col] === val) {
+              document.querySelector(`[data-index='${i * 9 + col}']`).classList.add('conflict');
+            }
+          }
+          const boxRow = Math.floor(row / 3) * 3;
+          const boxCol = Math.floor(col / 3) * 3;
+          for (let r = boxRow; r < boxRow + 3; r++) {
+            for (let c = boxCol; c < boxCol + 3; c++) {
+              if (r !== row && c !== col && grid[r][c] === val) {
+                document.querySelector(`[data-index='${r * 9 + c}']`).classList.add('conflict');
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function newGame() {
+      const difficulty = difficultySelect.value;
+      const puzzle = generatePuzzle(difficulty);
+      grid = puzzle;
+      renderBoard();
+    }
+
+    function generatePuzzle(difficulty) {
+      const solution = solvePuzzle();
+      const puzzle = solution.map(row => [...row]);
+      const cellsToClear = difficulty === 'easy' ? 30 : difficulty === 'medium' ? 40 : 50;
+      let count = 0;
+      while (count < cellsToClear) {
+        const row = Math.floor(Math.random() * 9);
+        const col = Math.floor(Math.random() * 9);
+        if (puzzle[row][col] !== 0) {
+          puzzle[row][col] = 0;
+          count++;
+        }
+      }
+      return puzzle;
+    }
+
+    function solvePuzzle() {
+      const grid = Array(9).fill().map(() => Array(9).fill(0));
+      fillGrid(grid, 0, 0);
+      return grid;
+    }
+
+    function fillGrid(grid, row, col) {
+      if (col === 9) {
+        row++;
+        col = 0;
+        if (row === 9) return true;
+      }
+      for (let num = 1; num <= 9; num++) {
+        if (isValid(grid, row, col, num)) {
+          grid[row][col] = num;
+          if (fillGrid(grid, row, col + 1)) return true;
+          grid[row][col] = 0;
+        }
+      }
+      return false;
+    }
+
+    function isValid(grid, row, col, num) {
+      for (let i = 0; i < 9; i++) {
+        if (grid[row][i] === num || grid[i][col] === num) return false;
+      }
+      const boxRow = Math.floor(row / 3) * 3;
+      const boxCol = Math.floor(col / 3) * 3;
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          if (grid[boxRow + i][boxCol + j] === num) return false;
+        }
+      }
+      return true;
+    }
+
+    createBoard();
+  </script>
+</body>
+</html>
