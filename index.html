@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --text: #e6edf3;
+      --accent: #f97316;
+      --border: #374151;
+      --invalid: #ef4444;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    select, button {
+      padding: 8px;
+      margin: 5px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    select {
+      font-size: 16px;
+    }
+    button:hover {
+      background: #ea580d;
+    }
+    #sudoku {
+      display: grid;
+      grid-template: repeat(9, 1fr) / repeat(9, 1fr);
+      gap: 1px;
+      width: 450px;
+      max-width: 95%;
+    }
+    .cell {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      user-select: none;
+      cursor: text;
+    }
+    .cell.bold {
+      font-weight: bold;
+      color: var(--accent);
+    }
+    .cell.invalid {
+      background: var(--invalid);
+      color: var(--bg);
+    }
+    .cell.selected {
+      outline: 3px solid var(--accent);
+    }
+    @media (max-width: 500px) {
+      #sudoku {
+        width: 300px;
+      }
+      .cell {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Sudoku</h1>
+  <select id="difficulty">
+    <option value="40">Easy</option>
+    <option value="30">Medium</option>
+    <option value="25">Hard</option>
+  </select>
+  <button onclick="newGame()">New Game</button>
+  <div id="sudoku"></div>
+  <script>
+    const difficultySelect = document.getElementById('difficulty');
+    const sudoku = document.getElementById('sudoku');
+    let board = [];
+    let selected = null;
+
+    function createBoard() {
+      sudoku.innerHTML = '';
+      board = Array(9).fill().map(() => Array(9).fill(0));
+      for (let i = 0; i < 81; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.setAttribute('contenteditable', true);
+        cell.addEventListener('click', () => selectCell(cell));
+        cell.addEventListener('input', () => validateCell(cell));
+        sudoku.appendChild(cell);
+      }
+    }
+
+    function selectCell(cell) {
+      if (selected) selected.classList.remove('selected');
+      selected = cell;
+      selected.classList.add('selected');
+    }
+
+    function validateCell(cell) {
+      const index = Array.from(sudoku.children).indexOf(cell);
+      const row = Math.floor(index / 9);
+      const col = index % 9;
+      const val = cell.innerText.trim();
+      if (!/^[1-9]$/.test(val)) {
+        cell.classList.add('invalid');
+        return;
+      }
+      cell.classList.remove('invalid');
+      checkConflicts(row, col, val);
+    }
+
+    function checkConflicts(row, col, val) {
+      const cells = Array.from(sudoku.children);
+      for (let i = 0; i < 81; i++) {
+        const r = Math.floor(i / 9);
+        const c = i % 9;
+        const cell = cells[i];
+        if (r === row || c === col || (Math.floor(r / 3) === Math.floor(row / 3) && Math.floor(c / 3) === Math.floor(col / 3))) {
+          if (r === row && c === col) continue;
+          if (cell.classList.contains('bold')) continue;
+          if (cell.innerText.trim() === val) {
+            cell.classList.add('invalid');
+          } else {
+            cell.classList.remove('invalid');
+          }
+        }
+      }
+    }
+
+    function newGame() {
+      const difficulty = parseInt(difficultySelect.value);
+      const puzzle = generatePuzzle(difficulty);
+      createBoard();
+      for (let i = 0; i < 81; i++) {
+        const cell = sudoku.children[i];
+        const val = puzzle[i];
+        if (val !== 0) {
+          cell.innerText = val;
+          cell.classList.add('bold');
+          cell.setAttribute('contenteditable', false);
+        } else {
+          cell.innerText = '';
+          cell.classList.remove('bold');
+          cell.setAttribute('contenteditable', true);
+        }
+      }
+      selected = null;
+    }
+
+    function generatePuzzle(clues) {
+      const solution = solvePuzzle();
+      const puzzle = [...solution];
+      let filled = 81;
+      while (filled > clues) {
+        const r = Math.floor(Math.random() * 9);
+        const c = Math.floor(Math.random() * 9);
+        if (puzzle[r * 9 + c] !== 0) {
+          puzzle[r * 9 + c] = 0;
+          filled--;
+        }
+      }
+      return puzzle;
+    }
+
+    function solvePuzzle() {
+      const board = Array(9).fill().map(() => Array(9).fill(0));
+      function backtrack() {
+        for (let row = 0; row < 9; row++) {
+          for (let col = 0; col < 9; col++) {
+            if (board[row][col] === 0) {
+              for (let num = 1; num <= 9; num++) {
+                if (isValid(board, row, col, num)) {
+                  board[row][col] = num;
+                  if (backtrack()) return true;
+                  board[row][col] = 0;
+                }
+              }
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+      function isValid(board, row, col, num) {
+        for (let i = 0; i < 9; i++) {
+          if (board[row][i] === num || board[i][col] === num) return false;
+        }
+        const boxRow = Math.floor(row / 3) * 3;
+        const boxCol = Math.floor(col / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            if (board[boxRow + i][boxCol + j] === num) return false;
+          }
+        }
+        return true;
+      }
+      backtrack();
+      return board.flat();
+    }
+
+    newGame();
+  </script>
+</body>
+</html>

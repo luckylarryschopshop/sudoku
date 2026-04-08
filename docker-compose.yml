@@ -1,0 +1,5 @@
+services:
+  sudoku:
+    build: .
+    ports:
+      - "3002:80"
